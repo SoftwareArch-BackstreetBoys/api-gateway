@@ -20,18 +20,18 @@ class CustomAuthPlugin {
     try {
       const arrayToken = jwt_token.split('.')
 
-      const { expire_date, user_id } = JSON.parse(atob(arrayToken[1]))
+      const { exp, Id } = JSON.parse(atob(arrayToken[1]))
 
-      if (!expire_date || !user_id) {
+      if (!exp || !Id) {
         await kong.response.exit(401, { message: 'Invalid jwt token' })
       }
 
-      if (new Date().getTime() >= expire_date*1000) {
+      if (new Date().getTime() >= exp*1000) {
         await kong.response.exit(401, { message: 'Access token expired.' })
         return
       }
 
-      await kong.service.request.add_header(user_id_header_name, user_id);
+      await kong.service.request.add_header(user_id_header_name, Id);
     } catch (error) {
       const status = error.response && error.response.status ? error.response.status : 500
       const body = error.response && error.response.data ? error.response.data : { message: 'Something went wrong. Please try again.' }
