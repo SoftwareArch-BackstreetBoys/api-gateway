@@ -49,7 +49,8 @@ class CustomAuthPlugin {
 
   async access(kong) {
     // const request_token_header_name = this.config.request_token_header
-    const user_id_field_name = this.config.user_id_field
+    const user_id_header_field = this.config.user_id_header_field
+    const user_id_body_field = this.config.user_id_body_field
     const user_service_host = this.config.user_service_host
 
     const cookie_header = await kong.request.get_header('Cookie')
@@ -72,8 +73,10 @@ class CustomAuthPlugin {
         await kong.response.exit(500, "user id not present")
       }
 
-      await kong.service.request.add_header(user_id_field_name, userID);
-      if (this.config.add_to_body) {
+      if (user_id_header_field && user_id_header_field !== "") {
+        await kong.service.request.add_header(user_id_header_field, userID);
+      }
+      if (user_id_body_field && user_id_body_field !== "") {
         let body = {}
         try {
           body = await kong.request.get_body();
@@ -84,7 +87,7 @@ class CustomAuthPlugin {
           body = {}
         }
 
-        body[user_id_field_name] = userID
+        body[user_id_body_field] = userID
 
         await kong.service.request.set_raw_body(JSON.stringify(body))
       }
@@ -104,24 +107,17 @@ module.exports = {
         required: true,
       }
     },
-    // {
-    //   request_token_header: {
-    //     type: 'string',
-    //     required: true,
-    //     description: 'Header key name which hold jwt access token as a value'
-    //   }
-    // },
     {
-      user_id_field: {
+      user_id_header_field: {
         type: 'string',
-        required: true,
+        required: false,
         description: 'Header/Body key name you want the plugin to set user_id to'
       }
     },
     {
-      add_to_body: {
-        type: 'boolean',
-        default: false,
+      user_id_body_field: {
+        type: 'string',
+        required: false,
       }
     }
   ],
