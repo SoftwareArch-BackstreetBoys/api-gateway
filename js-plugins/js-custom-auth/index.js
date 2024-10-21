@@ -1,5 +1,6 @@
 'use strict'
 
+const axios = require('axios'); // If you're in a Node.js environment
 const { version: Version } = require('./package.json')
 
 class CustomAuthPlugin {
@@ -8,33 +9,43 @@ class CustomAuthPlugin {
   }
 
   getCookieValue(cookieString, cookieName) {
-    // Split the cookie string into individual cookies
-    const cookies = cookieString.split('; ');
+    try {
+      // Split the cookie string into individual cookies
+      const cookies = cookieString.split('; ');
 
-    // Loop through the cookies to find the one that matches the cookieName
-    for (let cookie of cookies) {
-      const [name, value] = cookie.split('=');
-      if (name === cookieName) {
-        return decodeURIComponent(value); // Return the cookie value
+      // Loop through the cookies to find the one that matches the cookieName
+      for (let cookie of cookies) {
+        const [name, value] = cookie.split('=');
+        if (name === cookieName) {
+          return decodeURIComponent(value); // Return the cookie value
+        }
       }
-    }
 
-    return null; // Return null if the cookie is not found
+      return null; // Return null if the cookie is not found
+    } catch (err) {
+      return null;
+    }
   }
 
   async getUserData(url, jwt_token) {
-    const response = await fetch(url, {
-      headers: {
-        'Cookie': `jwt=${jwt_token}; `  // Manually setting the cookie
+    try {
+      const response = await axios.get(url, {
+        headers: {
+          'Cookie': `jwt=${jwt_token};`  // Manually setting the cookie
+        }
+      });
+
+      if (response.status !== 200) {
+        return null;
       }
-    })
 
-    if (!response.ok || response.status != 200) {
-      return null
+      return response.data; // Axios automatically parses the response as JSON
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      return null;
     }
-
-    return await response.json()
   }
+
 
   async access(kong) {
     // const request_token_header_name = this.config.request_token_header
@@ -50,9 +61,18 @@ class CustomAuthPlugin {
     }
 
     try {
-      const userData = this.getUserData(`${user_service_host}/auth/validate`, jwt_token)
-      
+      const userData = await this.getUserData(`${user_service_host}/auth/validate`, jwt_token)
+
+      await kong.response.exit(500, userData)
+
+      if (!userData) {
+        await kong.response.exit(500, "user_data not present")
+      }
+
       const userID = userData.id;
+      if (!userID || userID == "") {
+        await kong.response.exit(500, "user id not present")
+      }
 
       await kong.service.request.add_header(user_id_field_name, userID);
       if (this.config.add_to_body) {
