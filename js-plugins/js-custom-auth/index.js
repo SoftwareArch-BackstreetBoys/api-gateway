@@ -63,8 +63,6 @@ class CustomAuthPlugin {
     try {
       const userData = await this.getUserData(`${user_service_host}/auth/validate`, jwt_token)
 
-      await kong.response.exit(500, userData)
-
       if (!userData) {
         await kong.response.exit(500, "user_data not present")
       }
@@ -76,14 +74,22 @@ class CustomAuthPlugin {
 
       await kong.service.request.add_header(user_id_field_name, userID);
       if (this.config.add_to_body) {
-        const body = await kong.request.getBody();
+        let body = {}
+        try {
+          body = await kong.request.get_body();
+          if (body === null || body === "") {
+            body = {}
+          }
+        } catch (err) {
+          body = {}
+        }
 
         body[user_id_field_name] = userID
 
-        await kong.service.request.set_raw_body(body)
+        await kong.service.request.set_raw_body(JSON.stringify(body))
       }
     } catch (error) {
-      await kong.response.exit(500, { message: 'Something went wrong' })
+      await kong.response.exit(500, { message: "Something went wrong" })
     }
   }
 }
