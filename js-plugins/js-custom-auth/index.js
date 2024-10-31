@@ -80,16 +80,28 @@ class CustomAuthPlugin {
         let body = {}
         try {
           body = await kong.request.get_body();
-          if (body === null || body === "") {
+          if (!body || body === "" || body === null || body === undefined) {
             body = {}
           }
         } catch (err) {
           body = {}
         }
 
-        body[user_id_body_field] = userID
+        try {
+          body[user_id_body_field] = userID
+        } catch (err) {
+          await kong.response.exit(500, {
+            bo: body,
+            t: typeof body,
+            userID
+          })
+        }
 
-        await kong.service.request.set_raw_body(JSON.stringify(body))
+        try {
+          await kong.service.request.set_raw_body(JSON.stringify(body))
+        } catch (err) {
+          await kong.response.exit(500, { message: "error setting body" })
+        }
       }
     } catch (error) {
       await kong.response.exit(500, { message: "Something went wrong" })
